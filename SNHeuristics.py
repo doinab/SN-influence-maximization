@@ -96,12 +96,12 @@ gl_G = 0                    # some globals needed to make pool.map(evaluate_mt, 
 gl_p = 0
 gl_no_simulations = 0
 gl_model = 0
-gl_S = []
+gl_S = [2324, 107, 1912, 1835]
 gl_k = 0
 
 def evaluate_mt(v):
     eval_tuple = SNSim.evaluate(gl_G, gl_S+[v], gl_p, gl_no_simulations, gl_model)
-    return (eval_tuple[0], v)
+    return (eval_tuple[0], eval_tuple[2], v)
 
 # The approximate greedy algorithm by Kempe, et al. for any cascade model.
 # -> Calculates the k nodes of supposedly max influence, and that influence
@@ -115,17 +115,20 @@ def general_greedy_mt(k, G, p, no_simulations, model, no_cores):
     gl_model = model
 
     maxinfl_i = -1
+    maxci_i = -1
     v_i = -1
 
-    for i in range(k):
+    for i in range(len(gl_S)+1, k+1):
         L = list(set(G.nodes()) - set(gl_S))
         pool = Pool(no_cores)
         res = pool.map(evaluate_mt, L)
-        (maxinfl_i, v_i) = max(res)
+        (maxinfl_i, maxci_i, v_i) = max(res)
         gl_S.append(v_i)
-        print("[ k =", i+1, "] S =", gl_S, "influence =", maxinfl_i)
+        print(i, maxinfl_i, maxci_i, gl_S, sep=' ')                     # k, mean, CI95, the seed set
+        pool.close()
+        pool.join()
 
-    return gl_S, maxinfl_i
+    return gl_S, maxinfl_i, maxci_i
 
 if __name__ == "__main__":
     # file = 'soc-Epinions1.txt'
@@ -137,10 +140,11 @@ if __name__ == "__main__":
     file = 'facebook_combined.txt'
     G = nx.read_edgelist(file, comments='#', delimiter=' ', create_using=nx.Graph(), nodetype=int, data=False)
 
+    """
     for k in range(1, 401):
         # A = list(map(lambda x: x[1], high_degree_nodes(k, G)))        # heuristic 1: HIGHDEG
         A = single_discount_high_degree_nodes(k, G)                     # heuristic 2: SDISC
-        res = SNSim.evaluate(G, A, 0.05, 100, 'IC')
-        print(k, res[0], res[2], sep=' ') # mean, CI95
-
-    #print(general_greedy_mt(2, G, 0.01, 100, 'IC', 4))                  # heuristic 3: GEN_GREEDY
+        res = SNSim.evaluate(G, A, 0.01, 100, 'WC')
+        print(k, res[0], res[2], A, sep=' ')                            # k, mean, CI95, the seed set
+    """
+    general_greedy_mt(5, G, 0.01, 100, 'IC', 4)                         # heuristic 3: GENGREEDY
