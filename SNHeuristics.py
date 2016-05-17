@@ -4,6 +4,7 @@ import networkx as nx
 import heapq as hq
 import SNSim
 import time
+import json
 
 # [Kempe et al.] "The high-degree heuristic chooses nodes v in order of decreasing degrees. 
 # Considering high-degree nodes as influential has long been a standard approach 
@@ -160,8 +161,11 @@ if __name__ == "__main__":
     # file = 'facebook_combined.txt'
     # G = nx.read_edgelist(file, comments='#', delimiter=' ', create_using=nx.Graph(), nodetype=int, data=False)
 
+    # a dictionary by key k, to be jsoned
+    data_dump = {}
+
     # generator calls
-    for A in high_degree_nodes_gen(400, G):                             # heuristic 1: HIGHDEG
+    for A in high_degree_nodes_gen(4, G):                               # heuristic 1: HIGHDEG
 
     # non-generator calls
     # for k in range(1, 401):
@@ -170,6 +174,12 @@ if __name__ == "__main__":
 
         # evaluate the seed set A
         res = SNSim.evaluate(G, A, 0.01, 100, 'WC')
+        # print to plain text
         print(len(A), res[0], res[2], A, sep=' ')                       # k, mean, CI95, the seed set
+        # and/or add to dump for json
+        data_dump[len(A)] = (res[0], res[2], A)
+
+    with open('data.json', 'w') as F:
+        json.dump(data_dump, F)
 
     # general_greedy_mt(5, G, 0.01, 100, 'IC', 4)                       # heuristic 3: GENGREEDY
