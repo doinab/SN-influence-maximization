@@ -19,15 +19,35 @@ def high_degree_nodes(k, G):
     else:
         my_degree_function = G.degree
 
-    # the list of nodes to be returned; initialization
+    # the top k nodes to be returned; initialization with first k elements
     H = [(my_degree_function(i), i) for i in G.nodes()[0:k]] 
     hq.heapify(H)
 
-    for i in G.nodes()[k:]: # iterate through the remaining nodes
+    # iterate through the remaining nodes; add to heap if larger than heap root
+    for i in G.nodes()[k:]: 
         if my_degree_function(i) > H[0][0]:
             hq.heappushpop(H, (my_degree_function(i), i))
  
     return H
+
+# Generator variant of high_degree_nodes(k, G)
+# More time-efficient if k log k > log V
+# Generates _all_ sets of i nodes of highest degree, with 1 <= i <= k
+# -> Time complexity: O(V log (V))
+# -> Memory complexity: Theta(V)
+def high_degree_nodes_gen(k, G):
+
+    if nx.is_directed(G):
+        my_degree_function = G.out_degree
+    else:
+        my_degree_function = G.degree
+
+    V = [(my_degree_function(i), i) for i in G.nodes()]
+    V.sort(reverse=True)
+    N = [t[1] for t in V]
+
+    for i in range(1, min(k, len(N)) + 1):
+        yield N[:i]
 
 def dump_degree_list(G):
     H = []
@@ -96,7 +116,7 @@ gl_G = 0                    # some globals needed to make pool.map(evaluate_mt, 
 gl_p = 0
 gl_no_simulations = 0
 gl_model = 0
-gl_S = [2324, 107, 1912, 1835]
+gl_S = []
 gl_k = 0
 
 def evaluate_mt(v):
@@ -132,19 +152,24 @@ def general_greedy_mt(k, G, p, no_simulations, model, no_cores):
 
 if __name__ == "__main__":
     # file = 'soc-Epinions1.txt'
-    # file = 'wiki-Vote.txt'
+    file = 'wiki-Vote.txt'
     # file = 'amazon0302.txt'
     # file = 'web-Google.txt'
-    # G = nx.read_edgelist(file, comments='#', delimiter='\t', create_using=nx.DiGraph(), nodetype=int, data=False)
+    G = nx.read_edgelist(file, comments='#', delimiter='\t', create_using=nx.DiGraph(), nodetype=int, data=False)
 
-    file = 'facebook_combined.txt'
-    G = nx.read_edgelist(file, comments='#', delimiter=' ', create_using=nx.Graph(), nodetype=int, data=False)
+    # file = 'facebook_combined.txt'
+    # G = nx.read_edgelist(file, comments='#', delimiter=' ', create_using=nx.Graph(), nodetype=int, data=False)
 
-    """
-    for k in range(1, 401):
+    # generator calls
+    for A in high_degree_nodes_gen(400, G):                             # heuristic 1: HIGHDEG
+
+    # non-generator calls
+    # for k in range(1, 401):
         # A = list(map(lambda x: x[1], high_degree_nodes(k, G)))        # heuristic 1: HIGHDEG
-        A = single_discount_high_degree_nodes(k, G)                     # heuristic 2: SDISC
+        # A = single_discount_high_degree_nodes(k, G)                   # heuristic 2: SDISC
+
+        # evaluate the seed set A
         res = SNSim.evaluate(G, A, 0.01, 100, 'WC')
-        print(k, res[0], res[2], A, sep=' ')                            # k, mean, CI95, the seed set
-    """
-    general_greedy_mt(5, G, 0.01, 100, 'IC', 4)                         # heuristic 3: GENGREEDY
+        print(len(A), res[0], res[2], A, sep=' ')                       # k, mean, CI95, the seed set
+
+    # general_greedy_mt(5, G, 0.01, 100, 'IC', 4)                       # heuristic 3: GENGREEDY
