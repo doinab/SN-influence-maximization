@@ -32,7 +32,7 @@ def high_degree_nodes(k, G):
     return H
 
 # Generator variant of high_degree_nodes(k, G)
-# More time-efficient if k log k > log V
+# More time-efficient for range calls if k log k > log V
 # Generates _all_ sets of i nodes of highest degree, with 1 <= i <= k
 # -> Time complexity: O(V log (V))
 # -> Memory complexity: Theta(V)
@@ -89,6 +89,37 @@ def single_discount_high_degree_nodes(k, G):
 
     return D
 
+# Generator variant of single_discount_high_degree_nodes(k, G)
+# More time-efficient for repeated calls by Theta(V) 
+# Generates _all_ sets of i nodes of discounted highest degree, with 1 <= i <= k
+# -> Time complexity: O(V k^2)
+# -> Memory complexity: Theta(k)
+def single_discount_high_degree_nodes_gen(k, G):
+
+    if nx.is_directed(G):
+        my_degree_function = G.out_degree
+    else:
+        my_degree_function = G.degree
+
+    D = []
+
+    for i in range(k):
+        # find the node of max out_degree, discounting any out-edge
+        # to a node already in D
+        maxoutdeg_i = -1
+        v_i = -1
+        for v in list(set(G.nodes()) - set(D)):
+            outdeg = my_degree_function(v)
+            for u in D:
+                if G.has_edge(v, u):
+                    outdeg -= 1
+            if outdeg > maxoutdeg_i:
+                maxoutdeg_i = outdeg
+                v_i = v
+
+        D.append(v_i)
+        yield D
+
 # The approximate greedy algorithm by [Kempe et al.] for any cascade model.
 # -> Calculates the k nodes of supposedly max influence, and that influence
 # -> Single-thread
@@ -127,6 +158,8 @@ def evaluate_mt(v):
 # The approximate greedy algorithm by Kempe, et al. for any cascade model.
 # -> Calculates the k nodes of supposedly max influence, and that influence
 # -> Multi-thread
+# -> Time complexity: O(V k Time(SNSim.evaluate))
+# -> Memory complexity: Theta(k + Memory(SNSim.evaluate))
 def general_greedy_mt(k, G, p, no_simulations, model, no_cores):
     global gl_G, gl_k, gl_p, gl_no_simulations, gl_model, gl_S
     gl_G = G
@@ -165,18 +198,16 @@ if __name__ == "__main__":
     data_dump = {}
 
     # generator calls
-    for A in high_degree_nodes_gen(4, G):                               # heuristic 1: HIGHDEG
+    # for A in high_degree_nodes_gen(4, G):                             # heuristic 1: HIGHDEG
+    for A in single_discount_high_degree_nodes_gen(400, G):             # heuristic 2: SDISC
 
     # non-generator calls
     # for k in range(1, 401):
         # A = list(map(lambda x: x[1], high_degree_nodes(k, G)))        # heuristic 1: HIGHDEG
         # A = single_discount_high_degree_nodes(k, G)                   # heuristic 2: SDISC
 
-        # evaluate the seed set A
-        res = SNSim.evaluate(G, A, 0.01, 100, 'WC')
-        # print to plain text
+        res = SNSim.evaluate(G, A, 0.01, 100, 'IC')
         print(len(A), res[0], res[2], A, sep=' ')                       # k, mean, CI95, the seed set
-        # and/or add to dump for json
         data_dump[len(A)] = (res[0], res[2], A)
 
     with open('data.json', 'w') as F:
